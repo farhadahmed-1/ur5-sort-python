@@ -12,12 +12,14 @@ a = 2
 v = 4
 snap_pose = [0.5391011732241948, 0.08254341392115624, 0.7281967990628544, -1.8831145852993731, 1.9806709026496,
              -0.5337675885096753]
-target_r = [0.5090937784834637, 0.5017593717053667, 0.4256234524477258, -1.8831145852993731, 1.9806709026496,
-            -0.5337675885096753]
-target_y = [0.2558319064150231, 0.7189667206277992, 0.4256234524477258, -1.8831145852993731, 1.9806709026496,
-            -0.5337675885096753]
-target_g = [0.1178790777576236, 0.46656833910918244, 0.4256234524477258, -1.8831145852993731, 1.9806709026496,
-            -0.5337675885096753]
+col_name = ["Red", "Yellow", "Green"]
+# target[0] is Red, [1] is Yellow and [2] is Green. Additional colours can be added from [3] onwards.
+target = [[0.5090937784834637, 0.5017593717053667, 0.4256234524477258, -1.8831145852993731, 1.9806709026496,
+           -0.5337675885096753],
+          [0.2558319064150231, 0.7189667206277992, 0.4256234524477258, -1.8831145852993731, 1.9806709026496,
+           -0.5337675885096753],
+          [0.1178790777576236, 0.46656833910918244, 0.4256234524477258, -1.8831145852993731, 1.9806709026496,
+           -0.5337675885096753]]
 grab_pose = [0.5391011732241948, 0.08254341392115624, 0.4256234524477258, -1.8831145852993731, 1.9806709026496,
              -0.5337675885096753]
 # i_tl = [43, 85]
@@ -52,15 +54,23 @@ l_s = 170
 u_s = 255
 l_v = 50
 u_v = 255
-l_b_r1 = np.array([0, l_s, l_v])
-u_b_r1 = np.array([4, u_s, u_v])
-l_b_r2 = np.array([174, l_s, l_v])
-u_b_r2 = np.array([180, u_s, u_v])
-l_b_y = np.array([21, l_s, l_v])
-u_b_y = np.array([42, u_s, u_v])
-l_b_g = np.array([54, l_s, l_v])
-u_b_g = np.array([86, u_s, u_v])
-b_0 = np.array([0, 0, 0])
+l_b_1 = np.array([[0, l_s, l_v], [21, l_s, l_v], [54, l_s, l_v]])
+u_b_1 = np.array([[4, u_s, u_v], [42, u_s, u_v], [86, u_s, u_v]])
+l_b_2 = np.array([[174, l_s, l_v], [0, 0, 0], [0, 0, 0]])
+u_b_2 = np.array([[180, u_s, u_v], [0, 0, 0], [0, 0, 0]])
+
+
+# Function for finding contours using HSV Bounds
+def cont(cont_l_b_1, cont_u_b_1, cont_l_b_2, cont_u_b_2, hsv_img, cont_image):
+    mask = cv2.bitwise_or(cv2.inRange(hsv_img, cont_l_b_1, cont_u_b_1), cv2.inRange(hsv_img, cont_l_b_2, cont_u_b_2))
+    res = cv2.bitwise_and(cont_image, cont_image, mask=mask)
+    gray = cv2.cvtColor(res, cv2.COLOR_BGR2GRAY)
+    blurred = cv2.GaussianBlur(gray, (3, 3), 0)
+    canny = cv2.Canny(blurred, 0, 255, 1)
+    dilate = cv2.dilate(canny, np.ones((5, 5), np.uint8), iterations=1)
+    contours = cv2.findContours(dilate, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    contours = contours[0] if len(contours) == 2 else contours[1]
+    return contours
 
 
 # Function for finding image and world coordinates of the objects by iterating through contours
@@ -69,8 +79,8 @@ def coord(contours, r, g, b, box_img):
     t.estimate(src, dst)
     i_nos = 0
     objects = []
-    for k in contours:
-        y_k, x_k, w_k, h_k = cv2.boundingRect(k)
+    for k_coord in contours:
+        y_k, x_k, w_k, h_k = cv2.boundingRect(k_coord)
         if w_k > 40 and h_k > 40:
             cv2.rectangle(box_img, (y_k, x_k), (y_k + w_k, x_k + h_k), (b, g, r), 2)
             objects.append([x_k + h_k / 2, y_k + w_k / 2])
@@ -80,19 +90,6 @@ def coord(contours, r, g, b, box_img):
     else:
         world = t(objects)
     return i_nos, objects, world
-
-
-# Function for finding contours using HSV Bounds
-def cont(l_b_1, u_b_1, l_b_2, u_b_2, hsv_img, cont_image):
-    mask = cv2.bitwise_or(cv2.inRange(hsv_img, l_b_1, u_b_1), cv2.inRange(hsv_img, l_b_2, u_b_2))
-    res = cv2.bitwise_and(cont_image, cont_image, mask=mask)
-    gray = cv2.cvtColor(res, cv2.COLOR_BGR2GRAY)
-    blurred = cv2.GaussianBlur(gray, (3, 3), 0)
-    canny = cv2.Canny(blurred, 0, 255, 1)
-    dilate = cv2.dilate(canny, np.ones((5, 5), np.uint8), iterations=1)
-    contours = cv2.findContours(dilate, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    contours = contours[0] if len(contours) == 2 else contours[1]
-    return contours
 
 
 def snapshot():
@@ -105,14 +102,24 @@ def snapshot():
     hsv_img = cv2.cvtColor(snap_image, cv2.COLOR_BGR2HSV)
     box_img = snap_image
     # Find Contours of R, Y and G objects in the image
-    contours_r = cont(l_b_r1, u_b_r1, l_b_r2, u_b_r2, hsv_img, snap_image)
-    contours_y = cont(l_b_y, u_b_y, b_0, b_0, hsv_img, snap_image)
-    contours_g = cont(l_b_g, u_b_g, b_0, b_0, hsv_img, snap_image)
+    contours = []
+    k_cont = 0
+    for _ in col_name:
+        xd = cont(l_b_1[k_cont], u_b_1[k_cont], l_b_2[k_cont], u_b_2[k_cont], hsv_img, snap_image)
+        contours.insert(k_cont, xd)
+        k_cont += 1
     # Iterate thorough contours to find the coordinates of R, Y and G objects
-    i_r, r_objects, r_snap_world = coord(contours_r, 255, 0, 0, box_img)
-    i_y, y_objects, y_snap_world = coord(contours_y, 200, 200, 0, box_img)
-    i_g, g_objects, g_snap_world = coord(contours_g, 0, 255, 0, box_img)
-    return box_img, r_snap_world, y_snap_world, g_snap_world
+    i_nos = []
+    objects_img = []
+    objects_world = []
+    k_cont = 0
+    for _ in col_name:
+        xa, xb, xc = coord(contours[k_cont], 255, 0, 0, box_img)
+        i_nos.insert(k_cont, xa)
+        objects_img.insert(k_cont, xb)
+        objects_world.insert(k_cont, xc)
+        k_cont += 1
+    return box_img, objects_world
 
 
 def print_image(box_img):
@@ -124,7 +131,7 @@ def print_image(box_img):
     # Function for Pick and Place operation
 
 
-def pick_place(world, target, color):
+def pick_place(world, pp_target, color):
     i = 0
     for _ in world:
         print(color, " object no. ", i + 1)
@@ -146,7 +153,7 @@ def pick_place(world, target, color):
             rob.movel(grab_pose, a, v)
         # print("Grab Pose H1 ", grab_pose, " reached")
         if simulate == 0:
-            rob.movel(target, a, v)
+            rob.movel(pp_target, a, v)
         # print("Target ", target, " reached")
         if simulate == 0:
             r_grip.open_gripper()
@@ -161,7 +168,8 @@ r_grip = Robotiq_Two_Finger_Gripper(rob)
 print("Gripper initialized")
 r_grip.open_gripper()
 rob.movej((-1.96, -1.53, 1.58, -2.12, -1.56, 1.19), a, v)
-print("Start position reached")
+rob.movel(snap_pose, a, v)
+print("Snap position reached")
 
 while True:
     s = input("Enter Command: ")
@@ -171,14 +179,22 @@ while True:
         print("'t' - Teach robot new colour")
         print("'q' - Quit")
     elif s == 'r':
-        image, r_world, y_world, g_world = snapshot()
+        image, obj_world = snapshot()
         print_image(image)
         # Carry out Pick and Place for R, Y and G objects
-        pick_place(r_world, target_r, "Red")
-        pick_place(y_world, target_y, "Yellow")
-        pick_place(g_world, target_g, "Green")
+        k = 0
+        for _ in col_name:
+            pick_place(obj_world[k], target[k], col_name[k])
+            k += 1
         rob.movel(snap_pose, a, v)
         print("Pick and place complete")
+        # Wait for Image Window to be closed and then exit program
+        print("Press Escape on Image Window")
+        while True:
+            key = cv2.waitKey(1)
+            if key == 27:
+                break
+        cv2.destroyAllWindows()
 
     elif s == 't':
         print("Teach")
@@ -197,11 +213,4 @@ else:
     # print("Snap Pose ", snap_pose, " reached")
     print("Control Ended")
 
-# Wait for Image Window to be closed and then exit program
-print("Press Escape on Image Window")
-while True:
-    key = cv2.waitKey(1)
-    if key == 27:
-        break
-cv2.destroyAllWindows()
-exit()
+#exit()
