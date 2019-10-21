@@ -1,6 +1,5 @@
 # Import necessary libraries
 import urllib.request
-
 import cv2
 import numpy as np
 import urx
@@ -21,33 +20,33 @@ target_g = [0.1178790777576236, 0.46656833910918244, 0.4256234524477258, -1.8831
             -0.5337675885096753]
 grab_pose = [0.5391011732241948, 0.08254341392115624, 0.4256234524477258, -1.8831145852993731, 1.9806709026496,
              -0.5337675885096753]
-#i_tl = [43, 85]
-#i_tr = [37, 548]
-#i_bl = [443, 92]
-#i_br = [438, 547]
-#i_tl = [67, 92]
-#i_tr = [63, 546]
-#i_bl = [434, 95]
-#i_br = [440, 558]
+# i_tl = [43, 85]
+# i_tr = [37, 548]
+# i_bl = [443, 92]
+# i_br = [438, 547]
+# i_tl = [67, 92]
+# i_tr = [63, 546]
+# i_bl = [434, 95]
+# i_br = [440, 558]
 i_tl = [81.5, 83.5]
 i_tr = [79, 569.5]
 i_bl = [430.5, 93.5]
 i_br = [422.0, 566.0]
-i_c = [252, 316]
+i_c = [247.5, 331.5]
 src = np.asarray([i_bl, i_tl, i_c, i_tr, i_br])
-#w_tl = [.285, -0.098]
-#w_tr = [.297, .287]
-#w_bl = [.616, -0.106]
-#w_br = [.627, .278]
-#w_tl = [0.29416068099848053, -0.11106045244674607]
-#w_tr = [0.30323492653835876, 0.2674049203549436]
-#w_bl = [0.6050979989774012, -0.1233051699920784]
-#w_br = [0.6259044618009142, 0.2658443178067092]
+# w_tl = [.285, -0.098]
+# w_tr = [.297, .287]
+# w_bl = [.616, -0.106]
+# w_br = [.627, .278]
+# w_tl = [0.29416068099848053, -0.11106045244674607]
+# w_tr = [0.30323492653835876, 0.2674049203549436]
+# w_bl = [0.6050979989774012, -0.1233051699920784]
+# w_br = [0.6259044618009142, 0.2658443178067092]
 w_tl = [0.3090843777170824, -0.10271466299765152]
-w_tr = [0.3239865023210112, 0.30777591465563725]
-w_bl = [0.6082008596507158, -0.1098611529665721]
-w_br = [0.6203702963952806, 0.2953936090848621]
-w_c = [0.4622043240148198, 0.07025897657195562]
+w_tr = [0.3239865023210112, 0.30277591465563725]
+w_bl = [0.5982008596507158, -0.1068611529665721]
+w_br = [0.6103702963952806, 0.2903936090848621]
+w_c = [0.45448932497975086, 0.10681846161071724]
 dst = np.asarray([w_bl, w_tl, w_c, w_tr, w_br])
 l_s = 170
 u_s = 255
@@ -76,7 +75,7 @@ def coord(contours, r, g, b, box_img):
             cv2.rectangle(box_img, (y_k, x_k), (y_k + w_k, x_k + h_k), (b, g, r), 2)
             objects.append([x_k + h_k / 2, y_k + w_k / 2])
             i_nos += 1
-    if(i_nos==0):
+    if i_nos == 0:
         world = []
     else:
         world = t(objects)
@@ -84,9 +83,9 @@ def coord(contours, r, g, b, box_img):
 
 
 # Function for finding contours using HSV Bounds
-def cont(l_b_1, u_b_1, l_b_2, u_b_2, hsv_img, image):
+def cont(l_b_1, u_b_1, l_b_2, u_b_2, hsv_img, cont_image):
     mask = cv2.bitwise_or(cv2.inRange(hsv_img, l_b_1, u_b_1), cv2.inRange(hsv_img, l_b_2, u_b_2))
-    res = cv2.bitwise_and(image, image, mask=mask)
+    res = cv2.bitwise_and(cont_image, cont_image, mask=mask)
     gray = cv2.cvtColor(res, cv2.COLOR_BGR2GRAY)
     blurred = cv2.GaussianBlur(gray, (3, 3), 0)
     canny = cv2.Canny(blurred, 0, 255, 1)
@@ -100,20 +99,21 @@ def snapshot():
     rob.movel(snap_pose, a, v)
     print("Snap Pose ", snap_pose, " reached")
     pull_image = urllib.request.urlopen("http://192.168.1.6:4242/current.jpg?type=color")
-    image = cv2.imdecode(np.asarray(bytearray(pull_image.read()), dtype="uint8"), cv2.IMREAD_COLOR)
+    snap_image = cv2.imdecode(np.asarray(bytearray(pull_image.read()), dtype="uint8"), cv2.IMREAD_COLOR)
     print("Snapshot taken")
     # Convert to HSV, create a copy of the Image and prepare Transformation Matrix
-    hsv_img = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
-    box_img = image
+    hsv_img = cv2.cvtColor(snap_image, cv2.COLOR_BGR2HSV)
+    box_img = snap_image
     # Find Contours of R, Y and G objects in the image
-    contours_r = cont(l_b_r1, u_b_r1, l_b_r2, u_b_r2, hsv_img, image)
-    contours_y = cont(l_b_y, u_b_y, b_0, b_0, hsv_img, image)
-    contours_g = cont(l_b_g, u_b_g, b_0, b_0, hsv_img, image)
+    contours_r = cont(l_b_r1, u_b_r1, l_b_r2, u_b_r2, hsv_img, snap_image)
+    contours_y = cont(l_b_y, u_b_y, b_0, b_0, hsv_img, snap_image)
+    contours_g = cont(l_b_g, u_b_g, b_0, b_0, hsv_img, snap_image)
     # Iterate thorough contours to find the coordinates of R, Y and G objects
-    i_r, r_objects, r_world = coord(contours_r, 255, 0, 0, box_img)
-    i_y, y_objects, y_world = coord(contours_y, 200, 200, 0, box_img)
-    i_g, g_objects, g_world = coord(contours_g, 0, 255, 0, box_img)
-    return box_img, r_world, y_world, g_world
+    i_r, r_objects, r_snap_world = coord(contours_r, 255, 0, 0, box_img)
+    i_y, y_objects, y_snap_world = coord(contours_y, 200, 200, 0, box_img)
+    i_g, g_objects, g_snap_world = coord(contours_g, 0, 255, 0, box_img)
+    return box_img, r_snap_world, y_snap_world, g_snap_world
+
 
 def print_image(box_img):
     # Print Image with boxes on the screen
@@ -122,6 +122,8 @@ def print_image(box_img):
     cv2.waitKey(delay=1)
 
     # Function for Pick and Place operation
+
+
 def pick_place(world, target, color):
     i = 0
     for _ in world:
@@ -131,25 +133,26 @@ def pick_place(world, target, color):
         grab_pose[2] = 0.4256234524477258
         if simulate == 0:
             rob.movel(grab_pose, a, v)
-        #print("Grab Pose H1 ", grab_pose, " reached")
+        # print("Grab Pose H1 ", grab_pose, " reached")
         grab_pose[2] -= .15
         if simulate == 0:
             rob.movel(grab_pose, a, v)
-        #print("Grab Pose H0 ", grab_pose, " reached")
+        # print("Grab Pose H0 ", grab_pose, " reached")
         if simulate == 0:
             r_grip.close_gripper()
-        #print("Gripper Closed")
+        # print("Gripper Closed")
         grab_pose[2] += .15
         if simulate == 0:
             rob.movel(grab_pose, a, v)
-        #print("Grab Pose H1 ", grab_pose, " reached")
+        # print("Grab Pose H1 ", grab_pose, " reached")
         if simulate == 0:
             rob.movel(target, a, v)
-        #print("Target ", target, " reached")
+        # print("Target ", target, " reached")
         if simulate == 0:
             r_grip.open_gripper()
         print("Gripper Opened")
         i += 1
+
 
 # Initialize Robot and take a snapshot
 rob = urx.Robot("192.168.1.6")
@@ -162,12 +165,12 @@ print("Start position reached")
 
 while True:
     s = input("Enter Command: ")
-    if(s == 'h'):
-        print("Help:\n")
-        print("'r' - Run pick and place program\n")
+    if s == 'h':
+        print("Help:")
+        print("'r' - Run pick and place program")
         print("'t' - Teach robot new colour")
-
-    elif(s == 'r'):
+        print("'q' - Quit")
+    elif s == 'r':
         image, r_world, y_world, g_world = snapshot()
         print_image(image)
         # Carry out Pick and Place for R, Y and G objects
@@ -177,21 +180,22 @@ while True:
         rob.movel(snap_pose, a, v)
         print("Pick and place complete")
 
-
-    elif(s == 't'):
+    elif s == 't':
         print("Teach")
+
+    elif s == 'q':
+        break
 
 # Bring robot back to snap position and then exit control
 if simulate == 0:
     rob = urx.Robot("192.168.1.6")
     rob.movel(snap_pose, a, v)
-    #print("Snap Pose ", snap_pose, " reached")
+    # print("Snap Pose ", snap_pose, " reached")
     rob.close()
     print("Control Ended")
 else:
-    #print("Snap Pose ", snap_pose, " reached")
+    # print("Snap Pose ", snap_pose, " reached")
     print("Control Ended")
-
 
 # Wait for Image Window to be closed and then exit program
 print("Press Escape on Image Window")
