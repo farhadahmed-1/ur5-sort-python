@@ -6,7 +6,7 @@ import urx
 from skimage.transform import ProjectiveTransform
 from urx.robotiq_two_finger_gripper import Robotiq_Two_Finger_Gripper
 
-# Initialize tunable parameters
+# Initialize Global / Main Variables (tunable parameters)
 simulate = 0
 a = 2
 v = 4
@@ -22,6 +22,8 @@ target = [[0.5090937784834637, 0.5017593717053667, 0.4256234524477258, -1.883114
            -0.5337675885096753]]
 grab_pose = [0.5391011732241948, 0.08254341392115624, 0.4256234524477258, -1.8831145852993731, 1.9806709026496,
              -0.5337675885096753]
+teach_pose = [0.09874399087472048, 0.53439499719666, 0.4674974138741603, -1.8831145852993731, 1.9806709026496,
+              -0.5337675885096753]
 # i_tl = [43, 85]
 # i_tr = [37, 548]
 # i_bl = [443, 92]
@@ -54,15 +56,20 @@ l_s = 170
 u_s = 255
 l_v = 50
 u_v = 255
-l_b_1 = np.array([[0, l_s, l_v], [21, l_s, l_v], [54, l_s, l_v]])
-u_b_1 = np.array([[4, u_s, u_v], [42, u_s, u_v], [86, u_s, u_v]])
-l_b_2 = np.array([[174, l_s, l_v], [0, 0, 0], [0, 0, 0]])
-u_b_2 = np.array([[180, u_s, u_v], [0, 0, 0], [0, 0, 0]])
+l_b_1 = [[0, l_s, l_v], [21, l_s, l_v], [54, l_s, l_v]]
+u_b_1 = [[4, u_s, u_v], [42, u_s, u_v], [86, u_s, u_v]]
+l_b_2 = [[174, l_s, l_v], [0, 0, 0], [0, 0, 0]]
+u_b_2 = [[180, u_s, u_v], [0, 0, 0], [0, 0, 0]]
 
 
+# Define all functions
 # Function for finding contours using HSV Bounds
 def cont(cont_l_b_1, cont_u_b_1, cont_l_b_2, cont_u_b_2, hsv_img, cont_image):
-    mask = cv2.bitwise_or(cv2.inRange(hsv_img, cont_l_b_1, cont_u_b_1), cv2.inRange(hsv_img, cont_l_b_2, cont_u_b_2))
+    lb1 = np.array(cont_l_b_1)
+    ub1 = np.array(cont_u_b_1)
+    lb2 = np.array(cont_l_b_2)
+    ub2 = np.array(cont_u_b_2)
+    mask = cv2.bitwise_or(cv2.inRange(hsv_img, lb1, ub1), cv2.inRange(hsv_img, lb2, ub2))
     res = cv2.bitwise_and(cont_image, cont_image, mask=mask)
     gray = cv2.cvtColor(res, cv2.COLOR_BGR2GRAY)
     blurred = cv2.GaussianBlur(gray, (3, 3), 0)
@@ -90,36 +97,6 @@ def coord(contours, r, g, b, box_img):
     else:
         world = t(objects)
     return i_nos, objects, world
-
-
-def snapshot():
-    rob.movel(snap_pose, a, v)
-    print("Snap Pose ", snap_pose, " reached")
-    pull_image = urllib.request.urlopen("http://192.168.1.6:4242/current.jpg?type=color")
-    snap_image = cv2.imdecode(np.asarray(bytearray(pull_image.read()), dtype="uint8"), cv2.IMREAD_COLOR)
-    print("Snapshot taken")
-    # Convert to HSV, create a copy of the Image and prepare Transformation Matrix
-    hsv_img = cv2.cvtColor(snap_image, cv2.COLOR_BGR2HSV)
-    box_img = snap_image
-    # Find Contours of R, Y and G objects in the image
-    contours = []
-    k_cont = 0
-    for _ in col_name:
-        xd = cont(l_b_1[k_cont], u_b_1[k_cont], l_b_2[k_cont], u_b_2[k_cont], hsv_img, snap_image)
-        contours.insert(k_cont, xd)
-        k_cont += 1
-    # Iterate thorough contours to find the coordinates of R, Y and G objects
-    i_nos = []
-    objects_img = []
-    objects_world = []
-    k_cont = 0
-    for _ in col_name:
-        xa, xb, xc = coord(contours[k_cont], 255, 0, 0, box_img)
-        i_nos.insert(k_cont, xa)
-        objects_img.insert(k_cont, xb)
-        objects_world.insert(k_cont, xc)
-        k_cont += 1
-    return box_img, objects_world
 
 
 def print_image(box_img):
@@ -161,6 +138,85 @@ def pick_place(world, pp_target, color):
         i += 1
 
 
+def full_pp():
+    rob.movel(snap_pose, a, v)
+    print("Snap Pose ", snap_pose, " reached")
+    pull_image = urllib.request.urlopen("http://192.168.1.6:4242/current.jpg?type=color")
+    snap_image = cv2.imdecode(np.asarray(bytearray(pull_image.read()), dtype="uint8"), cv2.IMREAD_COLOR)
+    print("Snapshot taken")
+    # Convert to HSV, create a copy of the Image and prepare Transformation Matrix
+    hsv_img = cv2.cvtColor(snap_image, cv2.COLOR_BGR2HSV)
+    box_img = snap_image
+    # Find Contours of R, Y and G objects in the image
+    contours = []
+    k_cont = 0
+    for _ in col_name:
+        xd = cont(l_b_1[k_cont], u_b_1[k_cont], l_b_2[k_cont], u_b_2[k_cont], hsv_img, snap_image)
+        contours.insert(k_cont, xd)
+        k_cont += 1
+    # Iterate thorough contours to find the coordinates of R, Y and G objects
+    i_nos = []
+    objects_img = []
+    objects_world = []
+    k_cont = 0
+    for _ in col_name:
+        xa, xb, xc = coord(contours[k_cont], 255, 0, 0, box_img)
+        i_nos.insert(k_cont, xa)
+        objects_img.insert(k_cont, xb)
+        objects_world.insert(k_cont, xc)
+        k_cont += 1
+    print_image(box_img)
+    # Carry out Pick and Place for R, Y and G objects
+    k = 0
+    for _ in col_name:
+        pick_place(objects_world[k], target[k], col_name[k])
+        k += 1
+    rob.movel(snap_pose, a, v)
+    print("Pick and place complete")
+    # Wait for Image Window to be closed and then exit program
+    print("Press Escape on Image Window")
+    while True:
+        key = cv2.waitKey(1)
+        if key == 27:
+            break
+    cv2.destroyAllWindows()
+
+
+def teach():
+    rob.movel(teach_pose, a, v)
+    input("Place Object below camera and press any key")
+    pull_image = urllib.request.urlopen("http://192.168.1.6:4242/current.jpg?type=color")
+    snap_image = cv2.imdecode(np.asarray(bytearray(pull_image.read()), dtype="uint8"), cv2.IMREAD_COLOR)
+    print("Snapshot taken")
+    hsv_img = cv2.cvtColor(snap_image, cv2.COLOR_BGR2HSV)
+    average = (hsv_img[240][320][0] / 9 + hsv_img[239][320][0] / 9 + hsv_img[241][320][0] / 9 + hsv_img[240][319][
+        0] / 9 + hsv_img[239][319][0] / 9 + hsv_img[241][319][0] / 9 + hsv_img[240][321][0] / 9 + hsv_img[239][321][
+                   0] / 9 + hsv_img[241][321][0] / 9)
+    l_b_1.append([average - 15, l_s, l_v])
+    u_b_1.append([average + 15, u_s, u_v])
+    l_b_2.append([0, 0, 0])
+    u_b_2.append([0, 0, 0])
+    input("Move Arm to Bin Location and press any key")
+    t = rob.getl()
+    target.append([t[0], t[1], 0.4256234524477258, -1.8831145852993731, 1.9806709026496,
+                   -0.5337675885096753])
+    s_teach = input("Enter Color Name")
+    col_name.append(s_teach)
+    print("Color", s_teach, " Added")
+
+
+def define_bin():
+    i = 0
+    for k in col_name:
+        print("Move Arm to ", k, " Bin Location and press any key")
+        input()
+        t = rob.getl()
+        target[i] = [t[0], t[1], 0.4256234524477258, -1.8831145852993731, 1.9806709026496,
+                     -0.5337675885096753]
+        i += 1
+
+
+# Main Program Execution
 # Initialize Robot and take a snapshot
 rob = urx.Robot("192.168.1.6")
 print("Robot initialized at 192.168.1.6")
@@ -172,33 +228,22 @@ rob.movel(snap_pose, a, v)
 print("Snap position reached")
 
 while True:
-    s = input("Enter Command: ")
+    s = input("Enter Command (h for help): ")
     if s == 'h':
         print("Help:")
         print("'r' - Run pick and place program")
         print("'t' - Teach robot new colour")
+        print("'d' - Define new bin locations ")
         print("'q' - Quit")
     elif s == 'r':
-        image, obj_world = snapshot()
-        print_image(image)
-        # Carry out Pick and Place for R, Y and G objects
-        k = 0
-        for _ in col_name:
-            pick_place(obj_world[k], target[k], col_name[k])
-            k += 1
-        rob.movel(snap_pose, a, v)
-        print("Pick and place complete")
-        # Wait for Image Window to be closed and then exit program
-        print("Press Escape on Image Window")
-        while True:
-            key = cv2.waitKey(1)
-            if key == 27:
-                break
-        cv2.destroyAllWindows()
-
+        print("Starting pick and place program")
+        full_pp()
     elif s == 't':
-        print("Teach")
-
+        print("Starting Teach function")
+        teach()
+    elif s == 'b':
+        print("Define new bin locations")
+        define_bin()
     elif s == 'q':
         break
 
@@ -213,4 +258,4 @@ else:
     # print("Snap Pose ", snap_pose, " reached")
     print("Control Ended")
 
-#exit()
+# exit()
