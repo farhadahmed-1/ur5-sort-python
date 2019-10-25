@@ -12,7 +12,7 @@ from urx.robotiq_two_finger_gripper import Robotiq_Two_Finger_Gripper
 
 # Initialize Global / Main Variables (tunable parameters)
 
-simulate = 1                        # Robot only moves if simulate == 0
+simulate = 0                        # Robot only moves if simulate == 0
 a = 2                               # Acceleration
 v = 4                               # Velocity
 snap_pose = [0.5391011732241948, 0.08254341392115624, 0.7281967990628544, -1.8831145852993731, 1.9806709026496,
@@ -38,12 +38,26 @@ i_bl = [430.5, 93.5]
 i_br = [422.0, 566.0]
 i_c = [247.5, 331.5]
 
+# Use these values as Image Reference Points for Low Res Pictures
+# i_tl = [81.5, 83.5]
+# i_tr = [79, 569.5]
+# i_bl = [430.5, 93.5]
+# i_br = [422.0, 566.0]
+# i_c = [247.5, 331.5]
+
 # World Reference Points (Top-Left, Top-Right, Bottom-Left, Bottom-Right and Centre)
 w_tl = [0.3090843777170824, -0.10271466299765152]
 w_tr = [0.3239865023210112, 0.30277591465563725]
 w_bl = [0.5982008596507158, -0.1068611529665721]
 w_br = [0.6103702963952806, 0.2903936090848621]
 w_c = [0.45448932497975086, 0.10681846161071724]
+
+# Use these values as World Reference Points for Low Res Pictures
+# w_tl = [0.3090843777170824, -0.07771466299765152]
+# w_tr = [0.3239865023210112, 0.43277591465563725]
+# w_bl = [0.6782008596507158, -0.0818611529665721]
+# w_br = [0.6803702963952806, 0.4203936090848621]
+# w_c = [0.45448932497975086, 0.10681846161071724]
 
 # Lower and Upper Saturation and Value Thresholds for Image Processing
 l_s = 170
@@ -95,8 +109,8 @@ def coord(contours, r, g, b, box_img):
     t = ProjectiveTransform()       # Initiate Projective Transform
 
     # Use the Image and World Reference Points to Generate Source and Destination NumPy arrays for the transform
-    src = np.asarray([i_bl, i_tl, i_c, i_tr, i_br])
-    dst = np.asarray([w_bl, w_tl, w_c, w_tr, w_br])
+    src = np.asarray([i_bl, i_tl, i_tr, i_br])
+    dst = np.asarray([w_bl, w_tl, w_tr, w_br])
 
     t.estimate(src, dst)            # Prepare the transform model
     i_nos = 0                       # Count number of objects of the color
@@ -128,7 +142,7 @@ def print_image(box_img):
 
 # Function for Pick and Place operation of a certain colour objects
 def pick_place(world, pp_target, color):
-    print("Pick and place commencing on "+color+" objects.")
+    print("Pick and place commencing on " + color + " objects.")
     i = 0                           # Count for index no
     for _ in world:                 # For as many objects as in the world array
         print(color, " object no. ", i + 1)
@@ -154,7 +168,7 @@ def pick_place(world, pp_target, color):
                                     # Move to the Target Bin Location
             r_grip.open_gripper()   # Open the Gripper to drop the object into the bin
         i += 1                      # Increase the complete count
-    print("Pick and place complete on "+color+" objects.")
+    print("Pick and place complete on " + color + " objects.")
 
 
 # Function for the Full Pick and Place Operation from Start to End
@@ -186,7 +200,7 @@ def full_pp():
     objects_world = []              # Initialize empty array to store color wise object World Coordinates
     k_cont = 0                      # Keep Count of the Colours processed
     for _ in col_name:              # Iterate through Contours of Each Color in the Color Name array
-        col_hsv = np.uint8([[[(l_b_1[k_cont][0]+u_b_1[k_cont][0])/2, 213, 153]]])
+        col_hsv = np.uint8([[[(l_b_1[k_cont][0] + u_b_1[k_cont][0]) / 2, 213, 153]]])
                                     # Get the average hue of the color range for the bounding box
         col_rgb = cv2.cvtColor(col_hsv, cv2.COLOR_HSV2BGR)
                                     # Convert the average hue to RGB to send to function
@@ -281,39 +295,77 @@ def define_bin():
 
 # Main Program Execution
 
-if simulate == 0:
-    rob = urx.Robot("192.168.1.6")      # Initialize Robot Control
-    r_grip = Robotiq_Two_Finger_Gripper(rob)
-                                        # Initialize Gripper Control
-    r_grip.open_gripper()               # Open Gripper if previously closed
-    rob.movej((-1.96, -1.53, 1.58, -2.12, -1.56, 1.19), a, v)
-                                        # Move Robot arm to a safe position
-    rob.movel(snap_pose, a, v)          # Move Robot arm to the Snap Pose
-print("Robot initialized at 192.168.1.6, Gripper initialized and Snap position reached")
+connected = False
+while not connected:
+    s = input("Enter Command (h for help): ")
+    if s == 'c':  # connect
+        if simulate == 0:
+            while True:
+                print("Connecting...")
+                try:
+                    rob = urx.Robot("192.168.1.6")
+                                    # Initialize Robot Control
+                    r_grip = Robotiq_Two_Finger_Gripper(rob)
+                                    # Initialize Gripper Control
+                    r_grip.open_gripper()
+                                    # Open Gripper if previously closed
+                    rob.movej((-1.96, -1.53, 1.58, -2.12, -1.56, 1.19), a, v)
+                                    # Move Robot arm to a safe position
+                    rob.movel(snap_pose, a, v)
+                                    # Move Robot arm to the Snap Pose
+                    print("Robot initialized at 192.168.1.6, Gripper initialized and Snap position reached")
+                    connected = True
+                    break
+                except:
+                    s = input("Try again (y/n)?")
+                    if s == 'n':
+                        break
+        else:
+            print("Robot initialized at 192.168.1.6, Gripper initialized and Snap position reached")
+            break
+        if connected:
+            break
 
-while True:                             # Interactive Menu
+    if s == 'm':
+        s = input("Set mode ('1' for sim, 0 for real): ")
+        if s == '1':
+            simulate = 1
+        if s == '0':
+            simulate = 0
+
+    if s == 'h':
+        print("Help:")
+        print("'c' - connect to UR5")
+        print("'m' - set simulation mode")
+        print("'q' - quit")
+
+    if s == 'q':
+        print("Control Ended")
+        quit()
+
+while True:                         # Interactive Menu
     s = input("Enter Command (h for help - command list): ")
-    if s == 'h':                        # Help Option
+    if s == 'h':                    # Help Option
         print("Help:")
         print("'r' - Run pick and place program")
         print("'t' - Teach robot new colour")
         print("'d' - Define new bin locations ")
         print("'q' - Quit")
-    elif s == 'r':                      # Run Pick and Place Option
+    elif s == 'r':                  # Run Pick and Place Option
         print("Starting pick and place program")
-        full_pp()                       # Call Full Pick and Place Function
-    elif s == 't':                      # Teach New Colour Option
+        full_pp()                   # Call Full Pick and Place Function
+    elif s == 't':                  # Teach New Colour Option
         print("Starting Teach function")
-        teach()                         # Call Teach Function
-    elif s == 'd':                      # Define New Bin Locations Option
+        teach()                     # Call Teach Function
+    elif s == 'd':                  # Define New Bin Locations Option
         print("Define new bin locations")
-        define_bin()                    # Call Define Bin Function
-    elif s == 'q':                      # Quit Option
-        break                           # Break the endless loop
+        define_bin()                # Call Define Bin Function
+    elif s == 'q':                  # Quit Option
+        break                       # Break the endless loop
 
 if simulate == 0:
-    rob = urx.Robot("192.168.1.6")      # Re-connect robot
-    rob.movel(snap_pose, a, v)          # Bring robot back to snap position
-    rob.close()                         # Disconnect robot
+    rob = urx.Robot("192.168.1.6")  # Re-connect robot
+    rob.movel(snap_pose, a, v)      # Bring robot back to snap position
+    rob.close()                     # Disconnect robot
 print("Control Ended.")
 # exit()
